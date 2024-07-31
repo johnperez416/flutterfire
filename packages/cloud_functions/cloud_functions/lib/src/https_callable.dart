@@ -1,3 +1,4 @@
+// ignore_for_file: require_trailing_commas
 // Copyright 2020, the Chromium project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
@@ -31,7 +32,33 @@ class HttpsCallable {
   /// the user is also automatically included.
   Future<HttpsCallableResult<T>> call<T>([dynamic parameters]) async {
     assert(_debugIsValidParameterType(parameters));
-    return HttpsCallableResult<T>._(await delegate.call(parameters));
+
+    Object? updatedParameters;
+    if (parameters is Map) {
+      Map update = {};
+      parameters.forEach((key, value) {
+        update[key] = _updateRawDataToList(value);
+      });
+      updatedParameters = update;
+    } else if (parameters is List) {
+      List update = parameters.map(_updateRawDataToList).toList();
+      updatedParameters = update;
+    } else {
+      updatedParameters = _updateRawDataToList(parameters);
+    }
+    return HttpsCallableResult<T>._(await delegate.call(updatedParameters));
+  }
+}
+
+dynamic _updateRawDataToList(dynamic value) {
+  if (value is Uint8List ||
+      value is Int32List ||
+      value is Int64List ||
+      value is Float32List ||
+      value is Float64List) {
+    return value.toList();
+  } else {
+    return value;
   }
 }
 

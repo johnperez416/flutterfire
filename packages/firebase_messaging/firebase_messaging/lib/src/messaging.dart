@@ -1,3 +1,4 @@
+// ignore_for_file: require_trailing_commas
 // Copyright 2020, the Chromium project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
@@ -13,6 +14,8 @@ class FirebaseMessaging extends FirebasePluginPlatform {
   // instance with the default app before a user specifies an app.
   FirebaseMessagingPlatform? _delegatePackingProperty;
 
+  static Map<String, FirebaseMessaging> _firebaseMessagingInstances = {};
+
   FirebaseMessagingPlatform get _delegate {
     return _delegatePackingProperty ??= FirebaseMessagingPlatform.instanceFor(
         app: app, pluginConstants: pluginConstants);
@@ -26,31 +29,17 @@ class FirebaseMessaging extends FirebasePluginPlatform {
 
   /// Returns an instance using the default [FirebaseApp].
   static FirebaseMessaging get instance {
-    return FirebaseMessaging._(app: Firebase.app());
+    FirebaseApp defaultAppInstance = Firebase.app();
+    return FirebaseMessaging._instanceFor(app: defaultAppInstance);
   }
 
   //  Messaging does not yet support multiple Firebase Apps. Default app only.
-  /// Returns an instance using a specified [FirebaseApp]
-  ///
-  /// If [app] is not provided, the default Firebase app will be used.
-  // static FirebaseMessaging instanceFor({
-  //   FirebaseApp app,
-  // }) {
-  //   app ??= Firebase.app();
-  //   assert(app != null);
-  //
-  //   String key = '${app.name}';
-  //   if (_cachedInstances.containsKey(key)) {
-  //     return _cachedInstances[key];
-  //   }
-  //
-  //   FirebaseMessaging newInstance = FirebaseMessaging._(app: app);
-  //   _cachedInstances[key] = newInstance;
-  //
-  //   return newInstance;
-  // }
-  //
-  // static final Map<String, FirebaseMessaging> _cachedInstances = {};
+  /// Returns an instance using a specified [FirebaseApp].
+  factory FirebaseMessaging._instanceFor({required FirebaseApp app}) {
+    return _firebaseMessagingInstances.putIfAbsent(app.name, () {
+      return FirebaseMessaging._(app: app);
+    });
+  }
 
   /// Returns a Stream that is called when an incoming FCM payload is received whilst
   /// the Flutter instance is in the foreground.
@@ -79,6 +68,7 @@ class FirebaseMessaging extends FirebasePluginPlatform {
   ///
   /// This provided handler must be a top-level function and cannot be
   /// anonymous otherwise an [ArgumentError] will be thrown.
+  // ignore: use_setters_to_change_properties
   static void onBackgroundMessage(BackgroundMessageHandler handler) {
     FirebaseMessagingPlatform.onBackgroundMessage = handler;
   }
@@ -91,12 +81,15 @@ class FirebaseMessaging extends FirebasePluginPlatform {
   /// If the application has been opened from a terminated state via a [RemoteMessage]
   /// (containing a [Notification]), it will be returned, otherwise it will be `null`.
   ///
-  /// Once the [RemoteMesage] has been consumed, it will be removed and further
+  /// Once the [RemoteMessage] has been consumed, it will be removed and further
   /// calls to [getInitialMessage] will be `null`.
   ///
   /// This should be used to determine whether specific notification interaction
   /// should open the app with a specific purpose (e.g. opening a chat message,
   /// specific screen etc).
+  ///
+  /// on Android, if the message was received in the foreground, and the notification was
+  /// pressed whilst the app is in a background/terminated state, this will return `null`.
   Future<RemoteMessage?> getInitialMessage() {
     return _delegate.getInitialMessage();
   }
@@ -119,6 +112,8 @@ class FirebaseMessaging extends FirebasePluginPlatform {
   }
 
   /// Returns the default FCM token for this device.
+  ///
+  /// On web, a [vapidKey] is required.
   Future<String?> getToken({
     String? vapidKey,
   }) {
@@ -132,7 +127,7 @@ class FirebaseMessaging extends FirebasePluginPlatform {
     return _delegate.onTokenRefresh;
   }
 
-  bool isSupported() {
+  Future<bool> isSupported() {
     return _delegate.isSupported();
   }
 
@@ -147,10 +142,9 @@ class FirebaseMessaging extends FirebasePluginPlatform {
   ///
   ///  - On iOS, a dialog is shown requesting the users permission.
   ///  - On macOS, a notification will appear asking to grant permission.
-  ///  - On Android, is it not required to call this method. If called however,
-  ///    a [NotificationSettings] class will be returned with
-  ///    [NotificationSettings.authorizationStatus] returning
-  ///    [AuthorizationStatus.authorized].
+  ///  - On Android, a [NotificationSettings] class will be returned with the
+  ///    value of [NotificationSettings.authorizationStatus] indicating whether
+  ///    the app has notifications enabled or blocked in the system settings.
   ///  - On Web, a popup requesting the users permission is shown using the native browser API.
   ///
   /// Note that on iOS, if [provisional] is set to `true`, silent notification permissions will be
@@ -212,6 +206,9 @@ class FirebaseMessaging extends FirebasePluginPlatform {
   }
 
   /// Send a new [RemoteMessage] to the FCM server. Android only.
+  /// Firebase will decommission in June 2024: https://firebase.google.com/docs/reference/android/com/google/firebase/messaging/FirebaseMessaging#send
+  @Deprecated(
+      'This will be removed in a future release. Firebase will decommission in June 2024')
   Future<void> sendMessage({
     String? to,
     Map<String, String>? data,
@@ -238,12 +235,21 @@ class FirebaseMessaging extends FirebasePluginPlatform {
     return _delegate.setAutoInitEnabled(enabled);
   }
 
+  /// Enables or disables Firebase Cloud Messaging message delivery metrics export to BigQuery for Android.
+  ///
+  /// On iOS, you need to follow [this guide](https://firebase.google.com/docs/cloud-messaging/understand-delivery?platform=ios#enable_delivery_data_export_for_background_notifications)
+  /// in order to export metrics to BigQuery.
+  /// On Web, you need to setup a [service worker](https://firebase.google.com/docs/cloud-messaging/js/client) and call `experimentalSetDeliveryMetricsExportedToBigQueryEnabled(messaging, true)`
+  Future<void> setDeliveryMetricsExportToBigQuery(bool enabled) async {
+    return _delegate.setDeliveryMetricsExportToBigQuery(enabled);
+  }
+
   /// Sets the presentation options for Apple notifications when received in
   /// the foreground.
   ///
   /// By default, on Apple devices notification messages are only shown when
   /// the application is in the background or terminated. Calling this method
-  /// updates these options to allow customizing notification presentation behaviour whilst
+  /// updates these options to allow customizing notification presentation behavior whilst
   /// the application is in the foreground.
   ///
   /// Important: The requested permissions and those set by the user take priority

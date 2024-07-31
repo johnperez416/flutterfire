@@ -19,14 +19,23 @@
 }
 
 - (FlutterError *)onListenWithArguments:(id)arguments eventSink:(FlutterEventSink)events {
-  _listener =
-      [_auth addIDTokenDidChangeListener:^(FIRAuth *_Nonnull auth, FIRUser *_Nullable user) {
-        if (user) {
-          events(@{@"user" : [FLTFirebaseAuthPlugin getNSDictionaryFromUser:user]});
-        } else {
-          events(@{@"user" : [NSNull null]});
-        }
-      }];
+  bool __block initialAuthState = YES;
+
+  _listener = [_auth addIDTokenDidChangeListener:^(FIRAuth *_Nonnull auth,
+                                                   FIRUser *_Nullable user) {
+    if (initialAuthState) {
+      initialAuthState = NO;
+      return;
+    }
+
+    if (user) {
+      events(@{
+        @"user" : [PigeonParser getManualList:[PigeonParser getPigeonDetails:[auth currentUser]]]
+      });
+    } else {
+      events(@{@"user" : [NSNull null]});
+    }
+  }];
 
   return nil;
 }

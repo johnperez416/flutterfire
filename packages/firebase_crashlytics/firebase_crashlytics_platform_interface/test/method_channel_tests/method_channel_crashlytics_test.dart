@@ -4,7 +4,6 @@
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics_platform_interface/firebase_crashlytics_platform_interface.dart';
-import 'package:firebase_crashlytics_platform_interface/src/method_channel/method_channel_crashlytics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -28,7 +27,9 @@ void main() {
   Map<String, dynamic> kMockError = <String, dynamic>{
     'exception': 'Test exception',
     'reason': 'MethodChannelTest',
+    'fatal': false,
     'information': 'This is a test exception',
+    'buildId': '',
     'stackTraceElements': <Map<String, String>>[
       <String, String>{
         'declaringClass': 'MethodChannelCrashlyticsTest',
@@ -36,7 +37,7 @@ void main() {
         'fileName': 'method_channel_crashlytics_test.dart',
         'lineNumber': '99999',
       }
-    ]
+    ],
   };
 
   group('$MethodChannelFirebaseCrashlytics', () {
@@ -114,7 +115,9 @@ void main() {
         mockPlatformExceptionThrown = true;
 
         await testExceptionHandling(
-            'PLATFORM', mockCrashlytics!.checkForUnsentReports);
+          'PLATFORM',
+          mockCrashlytics!.checkForUnsentReports,
+        );
       });
     });
 
@@ -162,7 +165,9 @@ void main() {
         mockPlatformExceptionThrown = true;
 
         await testExceptionHandling(
-            'PLATFORM', crashlytics!.deleteUnsentReports);
+          'PLATFORM',
+          crashlytics!.deleteUnsentReports,
+        );
       });
     });
 
@@ -187,17 +192,21 @@ void main() {
         mockPlatformExceptionThrown = true;
 
         await testExceptionHandling(
-            'PLATFORM', crashlytics!.didCrashOnPreviousExecution);
+          'PLATFORM',
+          crashlytics!.didCrashOnPreviousExecution,
+        );
       });
     });
 
     group('recordError', () {
       test('should call delegate method successfully', () async {
         await crashlytics!.recordError(
-            exception: kMockError['exception'],
-            reason: kMockError['reason'],
-            information: kMockError['information'],
-            stackTraceElements: kMockError['stackTraceElements']);
+          exception: kMockError['exception'],
+          fatal: kMockError['fatal'],
+          reason: kMockError['reason'],
+          information: kMockError['information'],
+          stackTraceElements: kMockError['stackTraceElements'],
+        );
 
         // check native method was called
         expect(logger, <Matcher>[
@@ -206,8 +215,10 @@ void main() {
             arguments: <String, dynamic>{
               'exception': kMockError['exception'],
               'reason': kMockError['reason'],
+              'fatal': kMockError['fatal'],
               'information': kMockError['information'],
               'stackTraceElements': kMockError['stackTraceElements'],
+              'buildId': '',
             },
           ),
         ]);
@@ -219,12 +230,14 @@ void main() {
         mockPlatformExceptionThrown = true;
 
         await testExceptionHandling(
-            'PLATFORM',
-            () => crashlytics!.recordError(
-                exception: 'test exception',
-                reason: 'test',
-                information: 'test',
-                stackTraceElements: []));
+          'PLATFORM',
+          () => crashlytics!.recordError(
+            exception: 'test exception',
+            reason: 'test',
+            information: 'test',
+            stackTraceElements: [],
+          ),
+        );
       });
     });
 
@@ -284,8 +297,10 @@ void main() {
           () async {
         mockPlatformExceptionThrown = true;
 
-        await testExceptionHandling('PLATFORM',
-            () => crashlytics!.setCrashlyticsCollectionEnabled(true));
+        await testExceptionHandling(
+          'PLATFORM',
+          () => crashlytics!.setCrashlyticsCollectionEnabled(true),
+        );
       });
     });
 
@@ -309,8 +324,10 @@ void main() {
           () async {
         mockPlatformExceptionThrown = true;
 
-        await testExceptionHandling('PLATFORM',
-            () => crashlytics!.setUserIdentifier(kMockUserIdentifier));
+        await testExceptionHandling(
+          'PLATFORM',
+          () => crashlytics!.setUserIdentifier(kMockUserIdentifier),
+        );
       });
     });
 
@@ -336,7 +353,9 @@ void main() {
         mockPlatformExceptionThrown = true;
 
         await testExceptionHandling(
-            'PLATFORM', () => crashlytics!.setCustomKey('foo', 'bar'));
+          'PLATFORM',
+          () => crashlytics!.setCustomKey('foo', 'bar'),
+        );
       });
     });
   });

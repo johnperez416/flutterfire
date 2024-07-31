@@ -2,9 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:ui';
-
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 const int _kThousand = 1000;
 const int _kMillion = 1000000;
@@ -25,7 +23,7 @@ void _check(bool expr, String name, int value) {
 /// 9999-12-31T23:59:59.999999999Z. By restricting to that range, we ensure that we
 /// can convert to and from RFC 3339 date strings.
 ///
-/// For more information, see [the reference timestamp definition](https://github.com/google/protobuf/blob/master/src/google/protobuf/timestamp.proto)
+/// For more information, see [the reference timestamp definition](https://github.com/google/protobuf/blob/main/src/google/protobuf/timestamp.proto)
 @immutable
 class Timestamp implements Comparable<Timestamp> {
   /// Creates a [Timestamp]
@@ -42,7 +40,7 @@ class Timestamp implements Comparable<Timestamp> {
 
   /// Create a [Timestamp] fromMicrosecondsSinceEpoch
   factory Timestamp.fromMicrosecondsSinceEpoch(int microseconds) {
-    final int seconds = (microseconds ~/ _kMillion).floor();
+    final int seconds = microseconds ~/ _kMillion;
     final int nanoseconds = (microseconds - seconds * _kMillion) * _kThousand;
     return Timestamp(seconds, nanoseconds);
   }
@@ -55,7 +53,8 @@ class Timestamp implements Comparable<Timestamp> {
   /// Create a [Timestamp] from [DateTime].now()
   factory Timestamp.now() {
     return Timestamp.fromMicrosecondsSinceEpoch(
-        DateTime.now().microsecondsSinceEpoch);
+      DateTime.now().microsecondsSinceEpoch,
+    );
   }
 
   final int _seconds;
@@ -84,7 +83,7 @@ class Timestamp implements Comparable<Timestamp> {
   }
 
   @override
-  int get hashCode => hashValues(seconds, nanoseconds);
+  int get hashCode => Object.hash(seconds, nanoseconds);
 
   @override
   bool operator ==(Object other) =>

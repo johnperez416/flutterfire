@@ -13,6 +13,8 @@ part of cloud_firestore;
 @sealed
 @immutable
 abstract class DocumentReference<T extends Object?> {
+  DocumentReferencePlatform get _delegate;
+
   /// The Firestore instance associated with this document reference.
   FirebaseFirestore get firestore;
 
@@ -36,8 +38,10 @@ abstract class DocumentReference<T extends Object?> {
   /// Updates data on the document. Data will be merged with any existing
   /// document data.
   ///
+  /// Objects key can be a String or a FieldPath.
+  ///
   /// If no document exists yet, the update will fail.
-  Future<void> update(Map<String, Object?> data);
+  Future<void> update(Map<Object, Object?> data);
 
   /// Reads the document referenced by this [DocumentReference].
   ///
@@ -50,12 +54,15 @@ abstract class DocumentReference<T extends Object?> {
   ///
   /// An initial event is immediately sent, and further events will be
   /// sent whenever the document is modified.
-  Stream<DocumentSnapshot<T>> snapshots({bool includeMetadataChanges = false});
+  Stream<DocumentSnapshot<T>> snapshots({
+    bool includeMetadataChanges = false,
+    ListenSource source = ListenSource.defaultSource,
+  });
 
   /// Sets data on the document, overwriting any existing data. If the document
   /// does not yet exist, it will be created.
   ///
-  /// If [SetOptions] are provided, the data will be merged into an existing
+  /// If [SetOptions] are provided, the data can be merged into an existing
   /// document instead of overwriting.
   Future<void> set(T data, [SetOptions? options]);
 
@@ -76,7 +83,7 @@ abstract class DocumentReference<T extends Object?> {
   ///
   /// Future<void> main() async {
   ///   // Writes now take a Model as parameter instead of a Map
-  ///   await johnRef.set(Model());
+  ///   await modelRef.set(Model());
   ///
   ///   // Reads now return a Model instead of a Map
   ///   final Model model = await modelRef.get().then((s) => s.data());
@@ -92,9 +99,10 @@ abstract class DocumentReference<T extends Object?> {
 class _JsonDocumentReference
     implements DocumentReference<Map<String, dynamic>> {
   _JsonDocumentReference(this.firestore, this._delegate) {
-    DocumentReferencePlatform.verifyExtends(_delegate);
+    DocumentReferencePlatform.verify(_delegate);
   }
 
+  @override
   final DocumentReferencePlatform _delegate;
 
   @override
@@ -147,24 +155,37 @@ class _JsonDocumentReference
   }
 
   @override
-  Stream<DocumentSnapshot<Map<String, dynamic>>> snapshots(
-      {bool includeMetadataChanges = false}) {
+  Stream<DocumentSnapshot<Map<String, dynamic>>> snapshots({
+    bool includeMetadataChanges = false,
+    ListenSource source = ListenSource.defaultSource,
+  }) {
+    if (source == ListenSource.cache &&
+        defaultTargetPlatform == TargetPlatform.windows) {
+      throw UnimplementedError(
+        'Listening from cache is not supported on Windows',
+      );
+    }
+
     return _delegate
         .snapshots(includeMetadataChanges: includeMetadataChanges)
-        .map((delegateSnapshot) =>
-            _JsonDocumentSnapshot(firestore, delegateSnapshot));
+        .map(
+          (delegateSnapshot) =>
+              _JsonDocumentSnapshot(firestore, delegateSnapshot),
+        );
   }
 
   @override
   Future<void> set(Map<String, dynamic> data, [SetOptions? options]) {
     return _delegate.set(
-        _CodecUtility.replaceValueWithDelegatesInMap(data)!, options);
+      _CodecUtility.replaceValueWithDelegatesInMap(data)!,
+      options,
+    );
   }
 
   @override
-  Future<void> update(Map<String, Object?> data) {
+  Future<void> update(Map<Object, Object?> data) {
     return _delegate
-        .update(_CodecUtility.replaceValueWithDelegatesInMap(data)!);
+        .update(_CodecUtility.replaceValueWithDelegatesInMapFieldPath(data)!);
   }
 
   @override
@@ -182,7 +203,7 @@ class _JsonDocumentReference
       other.path == path;
 
   @override
-  int get hashCode => hashValues(firestore, path);
+  int get hashCode => Object.hash(firestore, path);
 
   @override
   String toString() => 'DocumentReference<Map<String, dynamic>>($path)';
@@ -229,6 +250,10 @@ class _WithConverterDocumentReference<T extends Object?>
   }
 
   @override
+  DocumentReferencePlatform get _delegate =>
+      _originalDocumentReference._delegate;
+
+  @override
   FirebaseFirestore get firestore => _originalDocumentReference.firestore;
 
   @override
@@ -257,9 +282,13 @@ class _WithConverterDocumentReference<T extends Object?>
   @override
   Stream<_WithConverterDocumentSnapshot<T>> snapshots({
     bool includeMetadataChanges = false,
+    ListenSource source = ListenSource.defaultSource,
   }) {
     return _originalDocumentReference
-        .snapshots(includeMetadataChanges: includeMetadataChanges)
+        .snapshots(
+      includeMetadataChanges: includeMetadataChanges,
+      source: source,
+    )
         .map((snapshot) {
       return _WithConverterDocumentSnapshot<T>(
         snapshot,
@@ -270,7 +299,7 @@ class _WithConverterDocumentReference<T extends Object?>
   }
 
   @override
-  Future<void> update(Map<String, Object?> data) {
+  Future<void> update(Map<Object, Object?> data) {
     return _originalDocumentReference.update(data);
   }
 
@@ -295,8 +324,12 @@ class _WithConverterDocumentReference<T extends Object?>
       other._toFirestore == _toFirestore;
 
   @override
-  int get hashCode => hashValues(
-      runtimeType, _originalDocumentReference, _fromFirestore, _toFirestore);
+  int get hashCode => Object.hash(
+        runtimeType,
+        _originalDocumentReference,
+        _fromFirestore,
+        _toFirestore,
+      );
 
   @override
   String toString() => 'DocumentReference<$T>($path)';

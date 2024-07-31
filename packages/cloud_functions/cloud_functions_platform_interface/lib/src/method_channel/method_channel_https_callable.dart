@@ -1,3 +1,4 @@
+// ignore_for_file: require_trailing_commas
 // Copyright 2020, the Chromium project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
@@ -6,15 +7,14 @@ import 'dart:async';
 
 import '../../cloud_functions_platform_interface.dart';
 import 'method_channel_firebase_functions.dart';
-
 import 'utils/exception.dart';
 
 /// Method Channel delegate for [HttpsCallablePlatform].
 class MethodChannelHttpsCallable extends HttpsCallablePlatform {
   /// Creates a new [MethodChannelHttpsCallable] instance.
   MethodChannelHttpsCallable(FirebaseFunctionsPlatform functions,
-      String? origin, String name, HttpsCallableOptions options)
-      : super(functions, origin, name, options);
+      String? origin, String? name, HttpsCallableOptions options, Uri? uri)
+      : super(functions, origin, name, options, uri);
 
   @override
   Future<dynamic> call([Object? parameters]) async {
@@ -23,10 +23,12 @@ class MethodChannelHttpsCallable extends HttpsCallablePlatform {
           .invokeMethod('FirebaseFunctions#call', <String, dynamic>{
         'appName': functions.app!.name,
         'functionName': name,
+        'functionUri': uri?.toString(),
         'origin': origin,
         'region': functions.region,
         'timeout': options.timeout.inMilliseconds,
         'parameters': parameters,
+        'limitedUseAppCheckToken': options.limitedUseAppCheckToken,
       });
 
       if (result is Map) {
@@ -35,7 +37,7 @@ class MethodChannelHttpsCallable extends HttpsCallablePlatform {
         return result;
       }
     } catch (e, s) {
-      throw convertPlatformException(e, s);
+      convertPlatformException(e, s);
     }
   }
 }

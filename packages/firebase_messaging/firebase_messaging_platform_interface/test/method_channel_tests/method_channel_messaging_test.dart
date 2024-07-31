@@ -1,3 +1,4 @@
+// ignore_for_file: require_trailing_commas
 // Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
@@ -62,6 +63,8 @@ void main() {
     });
 
     setUp(() {
+      // Default platform to run tests against; can be overridden for each test.
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
       log.clear();
       messaging = MethodChannelFirebaseMessaging(app: app);
     });

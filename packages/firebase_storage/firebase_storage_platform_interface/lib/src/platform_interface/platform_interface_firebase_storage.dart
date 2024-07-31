@@ -1,3 +1,4 @@
+// ignore_for_file: require_trailing_commas
 // Copyright 2020, the Chromium project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
@@ -56,7 +57,7 @@ abstract class FirebaseStoragePlatform extends PlatformInterface {
 
   /// Sets the [FirebaseStoragePlatform.instance]
   static set instance(FirebaseStoragePlatform instance) {
-    PlatformInterface.verifyToken(instance, _token);
+    PlatformInterface.verify(instance, _token);
     _instance = instance;
   }
 
@@ -111,8 +112,8 @@ abstract class FirebaseStoragePlatform extends PlatformInterface {
   ///
   /// Note: storage emulator is not supported for web yet. firebase-js-sdk does not support
   /// storage.useStorageEmulator until v9
-  Future<void> useEmulator(String host, int port) {
-    throw UnimplementedError('useEmulator() is not implemented');
+  Future<void> useStorageEmulator(String host, int port) {
+    throw UnimplementedError('useStorageEmulator() is not implemented');
   }
 
   /// The new maximum operation retry time in milliseconds.

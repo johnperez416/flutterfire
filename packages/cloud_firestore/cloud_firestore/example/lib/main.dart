@@ -2,25 +2,40 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'package:cloud_firestore_example/movie.dart';
-import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+import 'firebase_options.dart';
 
 /// Requires that a Firestore emulator is running locally.
 /// See https://firebase.flutter.dev/docs/firestore/usage#emulator-usage
-bool USE_FIRESTORE_EMULATOR = false;
+bool shouldUseFirestoreEmulator = true;
+
+Future<Uint8List> loadBundleSetup(int number) async {
+  // endpoint serves a bundle with 3 documents each containing
+  // a 'number' property that increments in value 1-3.
+  final url =
+      Uri.https('api.rnfirebase.io', '/firestore/e2e-tests/bundle-$number');
+  final response = await http.get(url);
+  String string = response.body;
+  return Uint8List.fromList(string.codeUnits);
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  if (USE_FIRESTORE_EMULATOR) {
-    FirebaseFirestore.instance.settings = const Settings(
-      host: 'localhost:8080',
-      sslEnabled: false,
-      persistenceEnabled: false,
-    );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+  );
+  if (shouldUseFirestoreEmulator) {
+    FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
   }
+
   runApp(FirestoreExampleApp());
 }
 
@@ -39,7 +54,7 @@ enum MovieQuery {
   year,
   likesAsc,
   likesDesc,
-  score,
+  rated,
   sciFi,
   fantasy,
 }
@@ -49,10 +64,10 @@ extension on Query<Movie> {
   Query<Movie> queryBy(MovieQuery query) {
     switch (query) {
       case MovieQuery.fantasy:
-        return where('genre', arrayContainsAny: ['Fantasy']);
+        return where('genre', arrayContainsAny: ['fantasy']);
 
       case MovieQuery.sciFi:
-        return where('genre', arrayContainsAny: ['Sci-Fi']);
+        return where('genre', arrayContainsAny: ['sci-fi']);
 
       case MovieQuery.likesAsc:
       case MovieQuery.likesDesc:
@@ -61,8 +76,8 @@ extension on Query<Movie> {
       case MovieQuery.year:
         return orderBy('year', descending: true);
 
-      case MovieQuery.score:
-        return orderBy('score', descending: true);
+      case MovieQuery.rated:
+        return orderBy('rated', descending: true);
     }
   }
 }
@@ -92,21 +107,7 @@ class FilmList extends StatefulWidget {
 }
 
 class _FilmListState extends State<FilmList> {
-  late Query<Movie> _moviesQuery;
-  late Stream<QuerySnapshot<Movie>> _movies;
-
-  @override
-  void initState() {
-    super.initState();
-    _updateMoviesQuery(MovieQuery.year);
-  }
-
-  void _updateMoviesQuery(MovieQuery query) {
-    setState(() {
-      _moviesQuery = moviesRef.queryBy(query);
-      _movies = _moviesQuery.snapshots();
-    });
-  }
+  MovieQuery query = MovieQuery.year;
 
   @override
   Widget build(BuildContext context) {
@@ -125,15 +126,15 @@ class _FilmListState extends State<FilmList> {
               builder: (context, _) {
                 return Text(
                   'Latest Snapshot: ${DateTime.now()}',
-                  style: Theme.of(context).textTheme.caption,
+                  style: Theme.of(context).textTheme.bodySmall,
                 );
               },
-            )
+            ),
           ],
         ),
         actions: <Widget>[
           PopupMenuButton<MovieQuery>(
-            onSelected: _updateMoviesQuery,
+            onSelected: (value) => setState(() => query = value),
             icon: const Icon(Icons.sort),
             itemBuilder: (BuildContext context) {
               return [
@@ -142,8 +143,8 @@ class _FilmListState extends State<FilmList> {
                   child: Text('Sort by Year'),
                 ),
                 const PopupMenuItem(
-                  value: MovieQuery.score,
-                  child: Text('Sort by Score'),
+                  value: MovieQuery.rated,
+                  child: Text('Sort by Rated'),
                 ),
                 const PopupMenuItem(
                   value: MovieQuery.likesAsc,
@@ -155,22 +156,107 @@ class _FilmListState extends State<FilmList> {
                 ),
                 const PopupMenuItem(
                   value: MovieQuery.fantasy,
-                  child: Text('Filter genre Fantasy'),
+                  child: Text('Filter genre fantasy'),
                 ),
                 const PopupMenuItem(
                   value: MovieQuery.sciFi,
-                  child: Text('Filter genre Sci-Fi'),
+                  child: Text('Filter genre sci-fi'),
                 ),
               ];
             },
           ),
           PopupMenuButton<String>(
-            onSelected: (_) => _resetLikes(),
+            onSelected: (value) async {
+              switch (value) {
+                case 'reset_likes':
+                  return _resetLikes();
+                case 'aggregate':
+                  // Count the number of movies
+                  final _count = await FirebaseFirestore.instance
+                      .collection('firestore-example-app')
+                      .count()
+                      .get();
+
+                  print('Count: ${_count.count}');
+
+                  // Average the number of likes
+                  final _average = await FirebaseFirestore.instance
+                      .collection('firestore-example-app')
+                      .aggregate(average('likes'))
+                      .get();
+
+                  print('Average: ${_average.getAverage('likes')}');
+
+                  // Sum the number of likes
+                  final _sum = await FirebaseFirestore.instance
+                      .collection('firestore-example-app')
+                      .aggregate(sum('likes'))
+                      .get();
+
+                  print('Sum: ${_sum.getSum('likes')}');
+
+                  // In one query
+                  final _all = await FirebaseFirestore.instance
+                      .collection('firestore-example-app')
+                      .aggregate(
+                        average('likes'),
+                        sum('likes'),
+                        count(),
+                      )
+                      .get();
+
+                  print('Average: ${_all.getAverage('likes')} '
+                      'Sum: ${_all.getSum('likes')} '
+                      'Count: ${_all.count}');
+
+                  return;
+                case 'load_bundle':
+                  Uint8List buffer = await loadBundleSetup(2);
+                  LoadBundleTask task =
+                      FirebaseFirestore.instance.loadBundle(buffer);
+
+                  final list = await task.stream.toList();
+
+                  print(
+                    list.map((e) => e.totalDocuments),
+                  );
+                  print(
+                    list.map((e) => e.bytesLoaded),
+                  );
+                  print(
+                    list.map((e) => e.documentsLoaded),
+                  );
+                  print(
+                    list.map((e) => e.totalBytes),
+                  );
+                  print(
+                    list,
+                  );
+
+                  LoadBundleTaskSnapshot lastSnapshot = list.removeLast();
+                  print(lastSnapshot.taskState);
+
+                  print(
+                    list.map((e) => e.taskState),
+                  );
+                  return;
+                default:
+                  return;
+              }
+            },
             itemBuilder: (BuildContext context) {
               return [
                 const PopupMenuItem(
                   value: 'reset_likes',
                   child: Text('Reset like counts (WriteBatch)'),
+                ),
+                const PopupMenuItem(
+                  value: 'aggregate',
+                  child: Text('Get aggregate data'),
+                ),
+                const PopupMenuItem(
+                  value: 'load_bundle',
+                  child: Text('Load bundle'),
                 ),
               ];
             },
@@ -178,7 +264,7 @@ class _FilmListState extends State<FilmList> {
         ],
       ),
       body: StreamBuilder<QuerySnapshot<Movie>>(
-        stream: _movies,
+        stream: moviesRef.queryBy(query).snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Center(
@@ -207,7 +293,12 @@ class _FilmListState extends State<FilmList> {
   }
 
   Future<void> _resetLikes() async {
-    final movies = await moviesRef.get();
+    final movies = await moviesRef.get(
+      const GetOptions(
+        serverTimestampBehavior: ServerTimestampBehavior.previous,
+      ),
+    );
+
     WriteBatch batch = FirebaseFirestore.instance.batch();
 
     for (final movie in movies.docs) {
@@ -228,9 +319,7 @@ class _MovieItem extends StatelessWidget {
   Widget get poster {
     return SizedBox(
       width: 100,
-      child: Center(
-        child: Image.network(movie.poster),
-      ),
+      child: Image.network(movie.poster),
     );
   }
 
@@ -247,7 +336,7 @@ class _MovieItem extends StatelessWidget {
           Likes(
             reference: reference,
             currentLikes: movie.likes,
-          )
+          ),
         ],
       ),
     );
@@ -265,7 +354,8 @@ class _MovieItem extends StatelessWidget {
   Widget get metadata {
     return Padding(
       padding: const EdgeInsets.only(top: 8),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -290,7 +380,7 @@ class _MovieItem extends StatelessWidget {
               style: const TextStyle(color: Colors.white),
             ),
           ),
-        )
+        ),
     ];
   }
 
@@ -309,6 +399,7 @@ class _MovieItem extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4, top: 4),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           poster,
           Flexible(child: details),
@@ -404,5 +495,49 @@ class _LikesState extends State<Likes> {
         Text('$_likes likes'),
       ],
     );
+  }
+}
+
+@immutable
+class Movie {
+  Movie({
+    required this.genre,
+    required this.likes,
+    required this.poster,
+    required this.rated,
+    required this.runtime,
+    required this.title,
+    required this.year,
+  });
+
+  Movie.fromJson(Map<String, Object?> json)
+      : this(
+          genre: (json['genre']! as List).cast<String>(),
+          likes: json['likes']! as int,
+          poster: json['poster']! as String,
+          rated: json['rated']! as String,
+          runtime: json['runtime']! as String,
+          title: json['title']! as String,
+          year: json['year']! as int,
+        );
+
+  final String poster;
+  final int likes;
+  final String title;
+  final int year;
+  final String runtime;
+  final String rated;
+  final List<String> genre;
+
+  Map<String, Object?> toJson() {
+    return {
+      'genre': genre,
+      'likes': likes,
+      'poster': poster,
+      'rated': rated,
+      'runtime': runtime,
+      'title': title,
+      'year': year,
+    };
   }
 }

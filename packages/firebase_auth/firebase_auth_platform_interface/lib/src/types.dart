@@ -1,3 +1,4 @@
+// ignore_for_file: require_trailing_commas
 // Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
@@ -30,9 +31,13 @@ typedef PhoneCodeAutoRetrievalTimeout = void Function(String verificationId);
 ///
 /// Setting a persistence type is only available on web based platforms.
 enum Persistence {
-  /// Indicates that the state will be persisted even when the browser window is
+  /// Indicates that the state will be persisted in Local Storage even when the browser window is
   /// closed.
   LOCAL,
+
+  /// Indicates that the state will be persisted in IndexedDB even when the browser window is
+  /// closed.
+  INDEXED_DB,
 
   /// Indicates that the state will only be stored in memory and will be
   /// cleared when the window or activity is refreshed.

@@ -1,3 +1,4 @@
+// ignore_for_file: require_trailing_commas
 // Copyright 2020 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
@@ -41,6 +42,12 @@ class MethodChannelFirebaseFunctions extends FirebaseFunctionsPlatform {
   @override
   HttpsCallablePlatform httpsCallable(
       String? origin, String name, HttpsCallableOptions options) {
-    return MethodChannelHttpsCallable(this, origin, name, options);
+    return MethodChannelHttpsCallable(this, origin, name, options, null);
+  }
+
+  @override
+  HttpsCallablePlatform httpsCallableWithUri(
+      String? origin, Uri uri, HttpsCallableOptions options) {
+    return MethodChannelHttpsCallable(this, origin, null, options, uri);
   }
 }

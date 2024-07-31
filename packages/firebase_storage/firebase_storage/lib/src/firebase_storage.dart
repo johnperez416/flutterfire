@@ -1,3 +1,4 @@
+// ignore_for_file: require_trailing_commas
 // Copyright 2020, the Chromium project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
@@ -151,14 +152,13 @@ class FirebaseStorage extends FirebasePluginPlatform {
 
   /// Changes this instance to point to a Storage emulator running locally.
   ///
-  /// Set the [host] (ex: localhost) and [port] (ex: 9199) of the local emulator.
+  /// Set the [host] of the local emulator, such as "localhost"
+  /// Set the [port] of the local emulator, such as "9199" (port 9199 is default for storage package)
   ///
   /// Note: Must be called immediately, prior to accessing storage methods.
   /// Do not use with production credentials as emulator traffic is not encrypted.
-  ///
-  /// Note: storage emulator is not supported for web yet. firebase-js-sdk does not support
-  /// storage.useStorageEmulator until v9
-  Future<void> useEmulator({required String host, required int port}) async {
+  Future<void> useStorageEmulator(String host, int port,
+      {bool automaticHostMapping = true}) async {
     assert(host.isNotEmpty);
     assert(!port.isNegative);
 
@@ -166,14 +166,15 @@ class FirebaseStorage extends FirebasePluginPlatform {
 
     // Android considers localhost as 10.0.2.2 - automatically handle this for users.
     if (defaultTargetPlatform == TargetPlatform.android && !kIsWeb) {
-      if (mappedHost == 'localhost' || mappedHost == '127.0.0.1') {
+      if ((mappedHost == 'localhost' || mappedHost == '127.0.0.1') &&
+          automaticHostMapping) {
         // ignore: avoid_print
         print('Mapping Storage Emulator host "$mappedHost" to "10.0.2.2".');
         mappedHost = '10.0.2.2';
       }
     }
 
-    await _delegate.useEmulator(host, port);
+    await _delegate.useStorageEmulator(mappedHost, port);
   }
 
   @override
@@ -183,7 +184,7 @@ class FirebaseStorage extends FirebasePluginPlatform {
       other.bucket == bucket;
 
   @override
-  int get hashCode => hashValues(app.name, bucket);
+  int get hashCode => Object.hash(app.name, bucket);
 
   @override
   String toString() => '$FirebaseStorage(app: ${app.name}, bucket: $bucket)';
